@@ -907,10 +907,28 @@ class Scope(object):
                 if res is not None:
                     return res
         function = self.lookup("operator%s" % operator)
-        if function is None:
+        function_alternatives = []
+        if function is not None:
+            function_alternatives = function.all_alternatives()
+
+        # look-up nonmember methods listed within a class
+        method_alternatives = []
+        if len(operands)==2: # binary operators only
+            for n in range(2):
+                if operands[n].type.is_cpp_class:
+                    obj_type = operands[n].type
+                    method = obj_type.scope.lookup("operator%s" % operator)
+                    if method is not None:
+                        method_alternatives += method.all_alternatives()
+
+        if (not method_alternatives) and (not function_alternatives):
             return None
+
+        # select the unique alternatives
+        all_alternatives = list(set(method_alternatives + function_alternatives))
+
         return PyrexTypes.best_match([arg.type for arg in operands],
-                                     function.all_alternatives())
+                                     all_alternatives)
 
     def lookup_operator_for_types(self, pos, operator, types):
         from .Nodes import Node
@@ -2219,7 +2237,9 @@ class CClassScope(ClassScope):
                         # TODO(robertwb): Make this an error.
                         warning(pos,
                             "Compatible but non-identical C method '%s' not redeclared "
-                            "in definition part of extension type '%s'.  This may cause incorrect vtables to be generated." % (name, self.class_name), 2)
+                            "in definition part of extension type '%s'.  "
+                            "This may cause incorrect vtables to be generated." % (
+                                    name, self.class_name), 2)
                         warning(entry.pos, "Previous declaration is here", 2)
                     entry = self.add_cfunction(name, type, pos, cname, visibility='ignore', modifiers=modifiers)
                 else:

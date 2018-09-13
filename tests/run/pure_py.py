@@ -2,6 +2,7 @@ import sys
 IS_PY2 = sys.version_info[0] < 3
 
 import cython
+from cython import sizeof
 
 is_compiled = cython.compiled
 
@@ -20,7 +21,7 @@ def test_sizeof():
     """
     x = cython.declare(cython.bint)
     print(cython.sizeof(x) == cython.sizeof(cython.bint))
-    print(cython.sizeof(cython.char) <= cython.sizeof(cython.short) <= cython.sizeof(cython.int) <= cython.sizeof(cython.long) <= cython.sizeof(cython.longlong))
+    print(sizeof(cython.char) <= sizeof(cython.short) <= sizeof(cython.int) <= sizeof(cython.long) <= sizeof(cython.longlong))
     print(cython.sizeof(cython.uint) == cython.sizeof(cython.int))
     print(cython.sizeof(cython.p_int) == cython.sizeof(cython.p_double))
     if cython.compiled:
@@ -106,7 +107,7 @@ def test_boundscheck(x):
 ##     return y
 
 
-def test_with_nogil(nogil):
+def test_with_nogil(nogil, should_raise=False):
     """
     >>> raised = []
     >>> class nogil(object):
@@ -121,13 +122,24 @@ def test_with_nogil(nogil):
     True
     >>> raised
     [None]
+
+    >>> test_with_nogil(nogil(), should_raise=True)
+    Traceback (most recent call last):
+    ValueError: RAISED!
+
+    >>> raised[1] is None
+    False
     """
     result = False
+    should_raise_bool = True if should_raise else False  # help the type inference ...
     with nogil:
         print("WORKS")
         with cython.nogil:
             result = True
+            if should_raise_bool:
+                raise ValueError("RAISED!")
     return result
+
 
 MyUnion = cython.union(n=cython.int, x=cython.double)
 MyStruct = cython.struct(is_integral=cython.bint, data=MyUnion)
@@ -209,6 +221,10 @@ def test_declare_c_types(n):
 @cython.ccall
 @cython.returns(cython.double)
 def c_call(x):
+    return x
+
+
+def call_ccall(x):
     """
     Test that a declared return type is honoured when compiled.
 
@@ -224,10 +240,6 @@ def c_call(x):
     >>> (is_compiled and 1) or result
     1
     """
-    return x
-
-
-def call_ccall(x):
     ret = c_call(x)
     return ret, cython.typeof(ret)
 
@@ -236,9 +248,13 @@ def call_ccall(x):
 @cython.inline
 @cython.returns(cython.double)
 def cdef_inline(x):
+    return x + 1
+
+
+def call_cdef_inline(x):
     """
     >>> result, return_type = call_cdef_inline(1)
-    >>> (not is_compiled and 'float') or type(return_type).__name__
+    >>> (not is_compiled and 'float') or type(result).__name__
     'float'
     >>> (not is_compiled and 'double') or return_type
     'double'
@@ -247,10 +263,6 @@ def cdef_inline(x):
     >>> result == 2.0  or  result
     True
     """
-    return x + 1
-
-
-def call_cdef_inline(x):
     ret = cdef_inline(x)
     return ret, cython.typeof(ret)
 
@@ -293,6 +305,12 @@ def ccall_except(x):
 @cython.returns(cython.long)
 @cython.exceptval(-1)
 def cdef_except(x):
+    if x == 0:
+        raise ValueError
+    return x+1
+
+
+def call_cdef_except(x):
     """
     >>> call_cdef_except(41)
     42
@@ -300,12 +318,6 @@ def cdef_except(x):
     Traceback (most recent call last):
     ValueError
     """
-    if x == 0:
-        raise ValueError
-    return x+1
-
-
-def call_cdef_except(x):
     return cdef_except(x)
 
 

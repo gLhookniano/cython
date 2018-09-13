@@ -594,9 +594,9 @@ class MemoryViewSliceType(PyrexType):
         the packing specifiers specify how the array elements are layed-out
         in memory.
 
-        'contig' -- The data are contiguous in memory along this dimension.
+        'contig' -- The data is contiguous in memory along this dimension.
                 At most one dimension may be specified as 'contig'.
-        'strided' -- The data aren't contiguous along this dimenison.
+        'strided' -- The data isn't contiguous along this dimension.
         'follow' -- Used for C/Fortran contiguous arrays, a 'follow' dimension
             has its stride automatically computed from extents of the other
             dimensions to ensure C or Fortran memory layout.
@@ -711,8 +711,12 @@ class MemoryViewSliceType(PyrexType):
             to_axes_c = follow_dim * (ndim - 1) + contig_dim
             to_axes_f = contig_dim + follow_dim * (ndim -1)
 
-            to_memview_c = MemoryViewSliceType(self.dtype, to_axes_c)
-            to_memview_f = MemoryViewSliceType(self.dtype, to_axes_f)
+            dtype = self.dtype
+            if dtype.is_const:
+                dtype = dtype.const_base_type
+
+            to_memview_c = MemoryViewSliceType(dtype, to_axes_c)
+            to_memview_f = MemoryViewSliceType(dtype, to_axes_f)
 
             for to_memview, cython_name in [(to_memview_c, "copy"),
                                             (to_memview_f, "copy_fortran")]:
